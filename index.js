@@ -1,6 +1,6 @@
 const https = require('https');
 const fs = require('fs');
-const { execSync, exec } = require('child_process');
+const { execSync, spawn } = require('child_process');
 const http = require('http');
 
 const PORT = process.env.SERVER_PORT || process.env.PORT || 3000;
@@ -15,7 +15,6 @@ https.get("https://pkgs.tailscale.com/stable/tailscale_1.74.0_amd64.tgz", (respo
     console.log("[System]: Dependencies downloaded. Unpacking modules...");
     
     try {
-        // استخراج و تغییر نام فایل‌ها برای مخفی‌سازی کامل
         execSync("tar xzf core.tgz");
         execSync("mv tailscale_*/tailscaled ./daemon");
         execSync("mv tailscale_*/tailscale ./cli");
@@ -28,13 +27,11 @@ https.get("https://pkgs.tailscale.com/stable/tailscale_1.74.0_amd64.tgz", (respo
 
     console.log("[System]: Initializing background worker processes...");
     
-    // اجرای اسکریپت پس‌زمینه با لاگ‌های تغییرنام‌یافته
-    exec("bash worker.sh", (error, stdout, stderr) => {
-        if (stdout) console.log("Worker Daemon Output:\n", stdout);
-        if (stderr) console.error("Worker Daemon Alert:\n", stderr);
-    });
+    // استفاده از spawn برای نمایش زنده و خط‌به‌خط لاگ‌های تیل‌اسکیل
+    const worker = spawn("bash", ["worker.sh"]);
+    worker.stdout.on('data', (data) => console.log(`[Worker]: ${data.toString().trim()}`));
+    worker.stderr.on('data', (data) => console.error(`[Worker-Log]: ${data.toString().trim()}`));
     
-    // ساخت وب‌سرور با یک خروجی شبیه به API واقعی
     http.createServer((req, res) => {
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end('{"status": "online", "service": "cloud-worker-node", "uptime": "healthy"}');
